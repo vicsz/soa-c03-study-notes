@@ -105,52 +105,202 @@ Automatic Response (restart ECS task, scale service, notify team)
 
 ---
 
-## Domain 2: Reliability & Business Continuity
+## 🌐 Domain 2 Deep Dive: Reliability & Business Continuity
 
-### Core Objectives
-- Design fault-tolerant architectures (multi-AZ, active-passive, active-active)  
-- Define backup, restore, and disaster recovery strategies  
-- Capacity planning and scaling for failure scenarios  
-
-### Key AWS Services & Features
-- **Amazon EC2 Auto Scaling**, **Application Load Balancer**, **Amazon Route 53 (failover routing)**  
-- **Amazon RDS Multi-AZ & Read Replicas**, **Amazon DynamoDB Global Tables**  
-- **AWS Backup**, **Amazon S3 Cross-Region Replication**, **Amazon S3 Glacier**  
-- **AWS Elastic Disaster Recovery (AWS DRS)**  
-
-### Sample Question Themes
-- *Designing a multi-region failover for a stateless web application with minimal data loss.*  
-- *Selecting the optimal backup strategy for a compliancy-driven database that must be restored within 15 minutes.*  
-
-### Tips & Techniques
-- Know the **Recovery Time Objective (RTO)** and **Recovery Point Objective (RPO)** definitions and use-cases.  
-- Review the differences between **pilot-light**, **warm standby** and **multi-region active-active**.  
-- Identify cost-vs-resilience trade-offs (e.g., lower cost vs higher risk) in a scenario question.
+### 🔧 Core Pillars of Reliability
+Reliability in AWS is built on **redundancy**, **automatic recovery**, and **tested resilience**:
+- **Eliminate single points of failure** using Multi-AZ and Multi-Region strategies
+- **Design for failure** – assume components *will* fail
+- **Automate detection and recovery** using health checks, Auto Scaling, and failover routing
+- **Define and architect based on RTO/RPO requirements**
 
 ---
 
-## Domain 3: Deployment & Automation
+### 📊 Understanding RTO and RPO (Critical for Scenario Questions)
 
-### Core Objectives
-- Infrastructure as Code (IaC) using AWS CloudFormation / Terraform  
-- Continuous Integration / Continuous Delivery (CI/CD) for AWS-based applications  
-- Application deployment strategies: rolling updates, blue/green, canary  
-- Container orchestration and serverless operations  
+| Strategy | RTO (Downtime Tolerance) | RPO (Data Loss Tolerance) | Cost Level | Typical Architecture |
+|---------|--------------------------|---------------------------|------------|----------------------|
+| Backup & Restore | Hours to days | Hours | 💲 (Lowest) | S3 + AWS Backup, manual restore |
+| Pilot Light | < 1 hour | Minutes to hours | 💲💲 | Minimal active infra, core services running |
+| Warm Standby | Minutes | Seconds to minutes | 💲💲💲 | Scaled-down full stack in secondary region |
+| Multi-Region Active-Active | Seconds | Near-zero | 💲💲💲💲 (Highest) | Global load balancing, data replication |
 
-### Key AWS Services & Features
-- **AWS CloudFormation**, **AWS CDK**, **HashiCorp Terraform**  
-- **AWS CodePipeline**, **CodeBuild**, **CodeDeploy**  
-- **Amazon ECS**, **Amazon EKS**, **Amazon ECR**, **AWS Fargate**  
-- **AWS Lambda**, **Amazon API Gateway**  
+**Exam Tip:** If **zero downtime** and **zero data loss** are required → *Active-Active, Multi-Region with Global Databases / Global Tables*.
 
-### Sample Question Themes
-- *Which deployment method minimises downtime when releasing a critical update to a global ecommerce platform?*  
-- *How would you automate multi-region infrastructure provisioning while ensuring drift detection?*  
+---
 
-### Tips & Techniques
-- Understand **immutable infrastructure** patterns vs **mutable** updates.  
-- Know the steps: **Source > Build > Test > Deploy > Monitor** in AWS native CI/CD.  
-- Container questions often involve ECR → ECS/EKS tasks, or autoscaling of pods based on custom metrics.
+### 🏗️ Reliability Architecture Patterns
+
+#### **1. Multi-AZ High Availability (In-Region)**
+- Automatic failover with shared storage (RDS Multi-AZ, EFS, DynamoDB)
+- Protects against Availability Zone failure
+- **Low latency failover** but does not protect from regional outages
+
+#### **2. Multi-Region Disaster Recovery**
+| Deployment Pattern | Use When | Key AWS Services |
+|-------------------|----------|------------------|
+| **Pilot Light** | Regulatory mandating offsite recovery, cost sensitive | EC2 launch templates, RDS snapshots, CloudFormation |
+| **Warm Standby** | Business-critical with moderate cost constraints | Scaled-down ECS/EKS/EBS, Route 53 failover routing |
+| **Active-Active** | Global-scale, mission-critical apps | Amazon Route 53 latency or geolocation routing, DynamoDB Global Tables |
+
+---
+
+### 🛠 Core AWS Services for Reliability
+
+#### **Compute**
+- **EC2 Auto Scaling**: Replace unhealthy instances automatically; supports predictive and scheduled scaling.
+- **Elastic Load Balancing**: Distributes traffic across targets; supports zonal failover.
+- **Route 53 Health Checks & Failover Routing**: Detects endpoint failure and redirects traffic.
+
+#### **Database & Storage**
+| Service | Reliability Feature | Key Notes |
+|--------|---------------------|-----------|
+| RDS | Multi-AZ, Read Replicas | Multi-AZ = synchronous, RR = asynchronous |
+| DynamoDB | Global Tables, Point-in-Time Recovery | Supports active-active writes |
+| S3 | Cross-Region Replication (CRR) | Versioning must be enabled |
+| EFS | Regional service, supports Multi-AZ NFS storage | Highly durable and managed |
+
+#### **Backup & DR Tools**
+- **AWS Backup** for centralized management, policies, cross-account backups
+- **Elastic Disaster Recovery (AWS DRS)** for block-level replication from on-premises or other clouds
+- **S3 Glacier** for archival with retrieval tiers (Expedited, Standard, Bulk)
+
+---
+
+### 🚨 Business Continuity Decision Framework
+
+> **Given a scenario, always identify:**  
+> 1. **Regulatory or compliance requirements** (data retention, DR location)  
+> 2. **RTO/RPO values**  
+> 3. **Budget constraints**  
+> 4. **Stateful vs stateless architecture**  
+> 5. **Database consistency requirements**
+
+✅ Stateful + strict RPO = synchronous replication (Multi-AZ, Global Database)  
+✅ Stateless app with user session caching = use Global Accelerator or Route 53 latency routing with session stickiness  
+✅ Compliance-driven backups = AWS Backup vault lock + cross-account backups  
+
+---
+
+### ⚠ Common Pitfalls & Exam Traps
+
+- **Confusing RDS Multi-AZ with Multi-Region** → Multi-AZ is *not* disaster recovery
+- **Assuming Route 53 automatically fails over without health checks enabled**
+- **Using S3 replication without enabling versioning**
+- **Overlooking data consistency when choosing Global Tables** (last writer wins)
+- **Choosing warm standby when RTO is seconds** → must use active-active
+- **Ignoring cost implications of keeping read replicas in multiple regions**
+
+---
+
+## 🚀 Domain 3 Deep Dive: Deployment & Automation
+
+### 🔧 Core Principles
+Modern AWS deployment is focused on **repeatability, version control, zero-downtime delivery, and automated governance**:
+- Treat all environments as code (IaC-first mindset)
+- Deploy using **immutable infrastructure** wherever possible
+- Integrate **drift detection, policy-as-code, and automated rollbacks**
+- Build CI/CD architectures that support **multi-region deployments**, **canary analysis**, and **automated health checks**
+
+---
+
+### 🏗 Infrastructure as Code (IaC) Deep Concepts
+
+| Tool | Key Features | Exam-Relevant Notes |
+|------|--------------|--------------------|
+| **CloudFormation** | Declarative templates, drift detection, StackSets | Supports multi-account/multi-region rollouts via StackSets |
+| **AWS CDK** | Imperative, higher-level constructs | Synthesizes to CloudFormation, supports pipelines |
+| **Terraform** | Multi-cloud, state management, modular | Must manage state in S3 + DynamoDB for locking; drift managed via plans |
+| **Change Management** | `cloudformation change sets`, `terraform plan` | Exam often asks how to preview before production deployment |
+
+✅ **Drift Detection** is a MUST KNOW topic – CloudFormation can detect configuration drift automatically.
+
+---
+
+### 🔁 Deployment Strategies & When to Use Them
+
+| Strategy | Zero Downtime | Rollback Speed | Cost | Best For |
+|---------|---------------|----------------|------|----------|
+| **Rolling** | ✅ Yes | Medium | 💲 | ECS/EKS services, ASGs |
+| **Blue/Green** | ✅ Yes | Fast | 💲💲 | High-availability, API-based workloads |
+| **Canary** | ✅ Yes | Fast + metrics-based rollback | 💲💲 | Critical apps where user impact must be minimized |
+| **Traffic Splitting (Lambda)** | ✅ Yes | Instant | 💲 | Serverless apps using weighted aliases |
+
+> **Exam Tip:** If traffic must gradually shift with automated rollback on errors → **Canary Deployment with CodeDeploy / Lambda weighted aliases**.
+
+---
+
+### 📦 CI/CD Pipelines (Native AWS vs Hybrid)
+
+#### 🔷 AWS Native CI/CD Flow
+```text
+Source (CodeCommit/GitHub)
+   ↓
+CodeBuild (Unit Tests, Security Scans)
+   ↓
+CodeDeploy or CloudFormation/CDK Deploy
+   ↓
+Post-Deploy Tests + Alarms
+   ↓
+Automated Rollback via CloudWatch Events or CodeDeploy hooks
+```
+
+### 🧠 Container & Serverless Deployment Patterns
+
+#### 🚢 ECS / EKS Deployment Automation
+
+- **Amazon ECR**  
+  - Stores container images  
+  - **Use version tags** (immutable tagging is critical for rollback strategies)  
+
+- **ECS with Fargate**  
+  - Provides **serverless container orchestration** (no EC2 to manage)  
+  - Ideal for simplified operations and rapid scaling  
+
+- **EKS with GitOps (ArgoCD / Flux)**  
+  - Declarative deployment using Git as the single source of truth  
+  - Frequently appears in scenario questions for **enterprise Kubernetes automation**
+
+#### 🔄 Autoscaling Methods
+
+| Platform | Autoscaling Type | Scaling Metrics |
+|----------|------------------|-----------------|
+| **ECS** | ECS Service Auto Scaling | CPU, memory, custom CloudWatch metrics |
+| **EKS** | Cluster Autoscaler (nodes), Horizontal Pod Autoscaler (pods) | CloudWatch metrics via Prometheus Adapter or Kubernetes Metrics Server |
+
+---
+
+#### ⚡ AWS Lambda Deployment & Automation
+
+- **Versioned with Aliases**  
+  - Every deployment creates a new version  
+  - Aliases allow traffic routing to specific versions (e.g., `prod`, `canary`)  
+
+- **Traffic Shifting Deployment Strategies**  
+  - **Linear or Canary configurations**  
+  - Integrated with **CloudWatch Alarms** for automatic rollback on failure  
+
+- **CodeDeploy Integration**  
+  - Automates safe Lambda deployments  
+  - Uses pre-traffic and post-traffic hooks for validation  
+
+---
+
+### ⚠ Common Pitfalls & Exam Traps
+
+- **Ignoring drift detection** when multiple teams deploy manually  
+  → Use **CloudFormation Stack Policies** or **Terraform State Locking**
+
+- **Choosing mutable EC2 deployments** instead of immutable patterns  
+  → Prefer **Launch Template versions + Auto Scaling group replacements**
+
+- **Failing to replicate ECR images across regions**  
+  → Critical for **disaster recovery and multi-region failover**
+
+- **Confusing deployment strategies:**
+  - **Canary:** Shift a *small percentage* of live traffic to a new version, monitor, then proceed  
+  - **Blue/Green:** Full parallel environment; traffic is switched over entirely when validated  
+
 
 ---
 
