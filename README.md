@@ -303,51 +303,200 @@ Automated Rollback via CloudWatch Events or CodeDeploy hooks
 
 
 ---
+## 🔐 Domain 4 Deep Dive: Security & Compliance
 
-## Domain 4: Security & Compliance
-
-### Core Objectives
-- Identity and access management across accounts, networks, services  
-- Encryption (in transit & at rest), key management, secrets storage  
-- Compliance frameworks (SOC 2, ISO/IEC 27001), audit logging and detection  
-
-### Key AWS Services & Features
-- **AWS IAM**, **IAM Identity Center**, **AWS Organizations**  
-- **AWS KMS**, **AWS CloudHSM**  
-- **AWS Secrets Manager**, **AWS Systems Manager Parameter Store**  
-- **AWS Config**, **AWS Security Hub**, **Amazon Macie**, **Amazon GuardDuty**  
-
-### Sample Question Themes
-- *Selecting the best method to enforce least-privilege across 50 AWS accounts in an Organisation.*  
-- *Choosing the correct encryption key management strategy for a regulated industry service.*  
-
-### Tips & Techniques
-- Pay special attention to **cross-account roles** and **permission boundaries**.  
-- Review how AWS services support encryption (SSE-S3, SSE-KMS, client-side).  
-- Understand **auditability**, **non-repudiation**, and **forensics readiness**.
+### 🧭 Core Security Principles
+- **Security is layered**: identity, network, data, application, monitoring.
+- **Operations teams enforce governance at scale** using automation, SCPs, preventive and detective controls.
+- **Compliance is continuous**: not a one-time audit but a state maintained through automation and monitoring.
 
 ---
 
-## Domain 5: Networking & Content Delivery
+### 🧑‍💼 Identity and Access Management (IAM)
 
-### Core Objectives
-- Design and troubleshoot VPCs, subnets, routing, NAT, endpoints  
-- Secure connectivity: VPC endpoints, PrivateLink, Transit Gateway  
-- Content delivery: Amazon CloudFront, traffic policies, caching  
+#### 🔑 IAM Core Constructs
+| Concept | Description | Exam Relevance |
+|--------|-------------|----------------|
+| **IAM Roles** | Temporary credentials, least privilege | Preferred for workloads and cross-account access |
+| **Permission Boundaries** | Limit maximum privileges an IAM role/user can be granted | Used in delegated administration and multi-account environments |
+| **IAM Identity Center (formerly SSO)** | Centralized workforce identity across multiple AWS accounts | Integrated with AWS Organizations |
+| **Service Control Policies (SCPs)** | Guardrails at the organization or OU level | *Preventive control* – cannot be overridden by account IAM |
 
-### Key AWS Services & Features
-- **Amazon VPC**, **AWS Transit Gateway**, **VPC Endpoints (Interface & Gateway)**  
-- **Amazon Route 53** (public/private zones, failover, weighted routing)  
-- **Amazon CloudFront**, **AWS Global Accelerator**, **AWS WAF**  
+✅ **EXAM TIP**: If the scenario mentions *"enforce security across all accounts"* → Use **AWS Organizations + SCPs**.
 
-### Sample Question Themes
-- *Troubleshooting connectivity issues between a private on-premises data-centre and AWS via Direct Connect + Transit Gateway.*  
-- *Optimising a global content-delivery architecture using CloudFront and regional edge caches for a streaming service.*
+---
 
-### Tips & Techniques
-- Be able to **diagram** network flows (ingress/egress, NAT, endpoint vs public Internet).  
-- Know **TTL impact** and **cache-hit ratios** when designing CloudFront distributions.  
-- Think about **governance** for shared networks (Transit Gateway + shared services VPC).
+### 🔒 Encryption & Key Management
+
+#### Encryption Options
+| Type | Managed By | Use Case | Notes |
+|------|------------|----------|-------|
+| SSE-S3 | S3 Managed Keys | Standard workloads | Free and automatic |
+| SSE-KMS | AWS KMS Keys | Regulated / audit-trail needs | CMKs provide full control |
+| SSE-C | Customer-provided keys | Niche, compliance-driven | Customer supplies each request |
+| Client-Side | Customer encrypts before upload | Highest control | Used in DRM or HSM use cases |
+
+#### AWS KMS Key Types
+- **AWS-Managed CMKs**: Automatic rotation, free
+- **Customer-Managed CMKs**: Full lifecycle control, rotation configurable, logging enabled
+- **Custom Key Store (via CloudHSM)**: Required when **FIPS 140-2 Level 3** or **external key control** is mandated
+
+✅ **EXAM TIP**: If compliance requires that AWS cannot access encryption keys → Use **CloudHSM custom key store**.
+
+---
+
+### 🔐 Secrets & Credential Management
+
+| Service | Best For | Key Features |
+|--------|----------|--------------|
+| **Secrets Manager** | Database credentials, API keys | Rotation with Lambda, cross-account support |
+| **Parameter Store (Advanced Tier)** | Config and secrets | Cheaper; supports rotation and KMS encryption |
+| **KMS** | Encryption keys | Integrated with nearly all AWS services |
+
+✅ **Choose Secrets Manager if** automatic rotation or multi-region secrets replication is required.
+
+---
+
+### 🛡 Detection & Compliance Monitoring
+
+#### 🔍 Core Detective Controls
+| Service | Function | Notes |
+|--------|----------|-------|
+| **GuardDuty** | Threat detection using ML and VPC flow logs | Continuous monitoring |
+| **Security Hub** | Central aggregation of findings | Supports CIS/SOC2 frameworks |
+| **AWS Config** | Detects drift from compliance rules | Remediation via SSM automation |
+| **CloudTrail** | Audit logging of all API actions | Required for forensics, stored in immutable S3 |
+
+✅ **For compliance reporting**: Use **Config + CloudTrail + Security Hub**.
+
+---
+
+### ⚠ Common Pitfalls & Exam Traps
+
+- **Confusing IAM policies with SCPs**  
+  → IAM policies *grant* permissions; SCPs *limit* maximum permissions.
+
+- **Assuming encryption is on by default everywhere**  
+  → Must explicitly enable or enforce via policies (e.g., S3 bucket policy `aws:SecureTransport`).
+
+- **Ignoring cross-account access best practices**  
+  → Use **IAM Roles with External IDs**, not sharing long-term keys.
+
+- **Choosing KMS when CloudHSM is required**  
+  → If scenario mentions **customer hardware security module** or **cannot allow AWS access** → CloudHSM.
+
+- **Forgetting that GuardDuty is region-specific**  
+  → Must be enabled in all regions or use delegated administrator.
+
+
+---
+## 🌐 Domain 5 Deep Dive: Networking & Content Delivery
+
+### 🧭 Core Architectural Principles
+- **Design for isolation and segmentation** using subnet tiers and routing domains
+- **Minimize exposure to the public internet** using PrivateLink, Interface Endpoints, and centralized egress controls
+- **Optimize performance globally** using edge services and routing policies
+- **Troubleshoot using flow logs, routing tables, and connectivity path analysis**
+
+---
+
+### 🔌 VPC Design & Connectivity
+
+#### 🧱 Core VPC Components
+| Component | Purpose | Key Details |
+|----------|---------|-------------|
+| **Public Subnet** | For internet-facing resources | Requires Internet Gateway and routing |
+| **Private Subnet** | Internal services | Access internet via NAT Gateway or PrivateLink |
+| **Route Tables** | Control traffic flow | Separate tables recommended per subnet tier |
+| **NAT Gateway** | Outbound-only internet access from private subnets | Zonal; must be deployed per AZ for HA |
+| **VPC Endpoints** | Private connectivity to AWS services | **Gateway Endpoints** (S3, DynamoDB), **Interface Endpoints** (most services) |
+
+#### 🔄 Secure Interconnectivity Options
+| Connectivity Method | Use Case | Notes |
+|--------------------|----------|-------|
+| **VPC Peering** | One-to-one VPC connectivity | No transitive routing |
+| **Transit Gateway** | Hub-and-spoke for many VPCs and on-prem | Supports routing domains and segmentation |
+| **AWS PrivateLink** | Provide private access to services | Consumer VPC creates Interface Endpoint |
+| **Direct Connect** | Dedicated private physical connection | Lower latency, predictable bandwidth |
+| **Site-to-Site VPN** | Internet-based encrypted tunnels | Can be combined with DX for redundancy |
+
+✅ **Exam Tip:** If a scenario mentions **“shared services VPC”** or **multi-account network governance** → use **Transit Gateway**.
+
+---
+
+### 🌍 Route 53 – Global DNS Control Plane
+
+#### Routing Policies
+| Policy | Purpose | Example |
+|--------|---------|---------|
+| **Failover** | DR & high availability | Primary in us-east-1, secondary in us-west-2 |
+| **Weighted** | Gradual traffic shifting | 90% old app, 10% new app |
+| **Latency-based** | Optimize end-user performance | Users routed to nearest region |
+| **Geolocation** | Regulatory or localization | EU users served from Frankfurt |
+
+✅ Private hosted zones are used inside VPCs for service discovery.
+
+---
+
+### ⚡ Content Delivery & Edge Optimization
+
+#### 🚀 CloudFront Capabilities
+- **Edge caching** reduces latency and offloads origin
+- **Origin Shield** adds a centralized caching layer for multi-regional deployment
+- **Signed URLs / Cookies** for restricted content (important for security scenarios)
+- **Lambda@Edge / CloudFront Functions** for header manipulation, redirects, authentication
+
+| Feature | Benefit |
+|--------|---------|
+| **Regional Edge Cache** | Larger cache closer to end-users |
+| **Field-Level Encryption** | Sensitive data encrypted only at edge |
+| **Origin Groups** | Automatic failover between origins |
+
+### 🌎 AWS Global Accelerator
+- Uses AWS global network instead of public internet
+- TCP/UDP acceleration
+- Fixed entry IP addresses (useful for compliance & firewall allowlisting)
+
+✅ Use **Global Accelerator** when you see **“static IP”, “improve performance over long distances”, or “optimize TCP traffic”**.
+
+---
+
+### 🛡 Security Controls in Networking
+
+| Service | Security Feature |
+|---------|------------------|
+| **AWS WAF** | Protects at edge (CloudFront, ALB) with rule-based filtering |
+| **Shield Advanced** | DDoS protection with 24/7 support and cost protection |
+| **Security Groups** | Stateful firewall at ENI level |
+| **Network ACLs** | Stateless, subnet-level |  
+
+✅ Use **VPC Flow Logs** and **Reachability Analyzer** for troubleshooting.
+
+---
+
+## ⚠ Common Pitfalls & Exam Traps
+
+- **Using VPC Peering instead of Transit Gateway** in multi-VPC environments → Peering does not support transitive routing.
+- **Assuming NAT Gateway is Highly Available by default** → It is AZ-specific; must deploy one per AZ.
+- **Forgetting to enable S3/DynamoDB Gateway Endpoint policies** for restricting access.
+- **Choosing CloudFront when a static IP is required** → must use Global Accelerator.
+- **Direct Connect alone is not HA** → must pair with VPN for resiliency.
+
+---
+
+## ✅ Practice Drill Recommendations
+
+- Design a **multi-region content delivery network** with CloudFront + failover origins + Route 53 health checks
+- Troubleshoot **hybrid connectivity** issues involving Direct Connect + Transit Gateway
+- Build a **centralized egress VPC** using NAT Gateway + VPC Endpoints + firewall rules
+- Select between **CloudFront vs Global Accelerator vs Route 53 routing policies** based on latency, control, and DR needs
+
+---
+
+## 🎯 Key Takeaway
+
+> ***Networking & content delivery in AWS is about more than routing packets—it’s about building secure, scalable, global architectures using edge services, private connectivity, and centralized governance with Transit Gateway, CloudFront, and Global Accelerator.***
+
 
 ---
 
