@@ -139,9 +139,10 @@ Reliability in AWS is built on **redundancy**, **automatic recovery**, and **tes
 #### **2. Multi-Region Disaster Recovery**
 | Deployment Pattern | Use When | Key AWS Services |
 |-------------------|----------|------------------|
-| **Pilot Light** | Regulatory mandating offsite recovery, cost sensitive | EC2 launch templates, RDS snapshots, CloudFormation |
-| **Warm Standby** | Business-critical with moderate cost constraints | Scaled-down ECS/EKS/EBS, Route 53 failover routing |
-| **Active-Active** | Global-scale, mission-critical apps | Amazon Route 53 latency or geolocation routing, DynamoDB Global Tables |
+| **Backup & Restore** | Lowest cost, longest recovery time | S3, AWS Backup, RDS Snapshots |
+| **Pilot Light** | Regulatory offsite recovery, low cost with minimal active infrastructure | EC2 Launch Templates, RDS Snapshots, CloudFormation, minimal core services running |
+| **Active-Passive (Warm Standby)** | Business-critical workloads requiring reduced RTO/RPO, moderate cost | Scaled-down ECS/EKS/EBS in secondary region, Route 53 failover routing, asynchronous database replication |
+| **Active-Active** | Mission-critical, zero downtime and zero data loss required | Amazon Route 53 latency/geolocation routing, DynamoDB Global Tables, Aurora Global Database, Global Accelerator |
 
 ---
 
